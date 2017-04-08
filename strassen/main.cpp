@@ -8,6 +8,7 @@
 #include<iostream>
 #include <memory>
 #include <cassert>
+#include <iomanip>
 using namespace std;
 //best practice for smart point
 //http://stackoverflow.com/questions/28294620/what-is-the-best-smart-pointer-return-type-for-a-factory-function
@@ -19,40 +20,66 @@ using namespace std;
 class matrix {
 public:
     matrix(int n) {
-        m_matrix = unique_ptr<int[]>(new int[n * n]);
+        m_matrix = shared_ptr<int>(new int[n * n], default_delete<int[]>());
+        //m_matrix = unique_ptr<int[]>(new int[n * n]);
         m_n = n;
+        m_size = n;
+        m_orginx = 0;
+        m_orginy = 0;
     }
-    matrix(const matrix& m) = delete;
-    matrix& operator=(const matrix& m) = delete;
-    matrix(matrix&& m) {
-        if(this != &m)
-            m_matrix = move(m.m_matrix);
-        cout << "move ctor called" << endl;
-    }
-    matrix& operator=(matrix&& m) {
-        if(this != &m)
-            m_matrix = move(m.m_matrix);
-        cout << "= move ctor called" << endl;
-        return *this;
-    }
-    size_t size() {
+    size_t size() const{
         return m_n;
     }
-    int& at(int x, int y) {
-        assert(x < m_n && y < m_n);
-        return *(m_matrix.get() + y * m_n + x);
+
+    int& at(int x, int y) const {
+        assert(x >= 0 && x < m_n && y >= 0 && y < m_n);
+        return *(m_matrix.get() + (m_orginx + x) * m_size + (m_orginy + y));
     }
-    matrix create(bool cond) {
-        matrix r(m_n);
-        matrix s(m_n);
-        if(cond)
-            return r;
-        else
-            return s;
+    matrix submatrix(int orginx, int orginy, int n) {
+        assert(orginx >= 0 && orginy >= 0 && n > 0);
+        assert(orginx + n <= m_n && orginy + n <= m_n);
+        matrix sub = *this;
+        sub.m_orginx = m_orginx + orginx;
+        sub.m_orginy = m_orginy + orginy;
+        sub.m_n = n;
+        return sub;
+    }
+    matrix operator+(const matrix& other) const {
+        assert(m_n == other.size());
+        matrix c(m_n);
+        for(int i = 0; i < m_n; i++) {
+            for(int j = 0; j < m_n; j++) {
+                c.at(i, j) = at(i, j) + other.at(i, j);
+            }
+        }
+        return c;
+    }
+    matrix operator-(const matrix& other) const {
+        assert(m_n == other.size());
+        matrix c(m_n);
+        for(int i = 0; i < m_n; i++) {
+            for(int j = 0; j < m_n; j++) {
+                c.at(i, j) = at(i, j) - other.at(i, j);
+            }
+        }
+        return c;
+    }
+    void print() const {
+        for(int i = 0; i < m_n; i++) {
+            for(int j = 0; j < m_n; j++) {
+                cout << setfill(' ') << setw(4) << at(i, j);
+            }
+            cout << endl;
+        }
+        cout << endl;
     }
 private:
     size_t m_n;
-    unique_ptr<int[]> m_matrix;
+    size_t m_size;
+    int m_orginx;
+    int m_orginy;
+    shared_ptr<int> m_matrix;
+    //unique_ptr<int[]> m_matrix;
 };
 
 void strassen(int *a, int *b, int *c, int n) {
@@ -60,10 +87,14 @@ void strassen(int *a, int *b, int *c, int n) {
 }
 
 int main() {
-    matrix m(3);
-    m.at(1, 1) = 7;
-    cout << m.at(1, 1) << endl;
-    auto a = m.create(false);
-    cout << a.at(1, 1) << endl;
+    matrix a(3), b(3);
+    a.at(1, 1) = 7;
+    b.at(0, 0) = 1;
+    b.at(1, 1) = 5;
+    auto c = a + b;
+    auto d = c.submatrix(1, 1, 2);
+    c.at(1, 1) = 5;
+    c.print();
+    d.print();
     return 0;
 }
